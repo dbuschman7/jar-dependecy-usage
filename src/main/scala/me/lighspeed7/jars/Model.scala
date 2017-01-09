@@ -12,17 +12,24 @@ object Constants {
 case class JarRequest(
     groupId: String,
     artifactId: String,
-    version: String //
+    version: String,
+    scope: String = "compile" //
     ) {
 
-  def groupArtifact: String = s"${groupId}:${artifactId}"
+  val groupArtifact: String = s"${groupId}:${artifactId}"
+  val sortableVersion: String = {
+    implicit class Pimp(in: String) {
+      def prepad(padChar: Char, length: Int): String = "".padTo(length - in.size, padChar).toString + in
+    }
+    version.split("\\.").foldLeft(new StringBuffer()) { case (buf, next) => buf.append(next.prepad('_', 10)) }.toString()
+  }
 
   def ivyJarPath: String = s"${groupId}/${artifactId}/jars/${artifactId}-${version}.jar"
   def ivyBundlePath: String = s"${groupId}/${artifactId}/bundles/${artifactId}-${version}.jar"
   def ivySrcPath: String = s"${groupId}/${artifactId}/jars/${artifactId}-${version}-sources.jar"
   def ivyDocPath: String = s"${groupId}/${artifactId}/jars/${artifactId}-${version}-javadoc.jar"
 
-  def toKey: String = s"${groupId}#${artifactId};${version}"
+  def toKey: String = s"${groupId}-${artifactId}-${sortableVersion}"
   def toIdString: String = s"${groupId}:${artifactId}:${version}"
 
 }

@@ -2,6 +2,7 @@ package me.lighspeed7.jars
 
 import org.scalatest.FunSuite
 import org.scalatest.Matchers.{ be, convertToAnyShouldWrapper, convertToStringShouldWrapper }
+import scala.collection.mutable.TreeSet
 
 class ModelTest extends FunSuite {
   test("Jar ivy generation") {
@@ -9,7 +10,7 @@ class ModelTest extends FunSuite {
     val jar = JarRequest("com.typesafe.akka", "akka-stream_2.12", "2.4.14")
     val data = JarData(jar, 0)
 
-    jar.toKey should be("com.typesafe.akka#akka-stream_2.12;2.4.14")
+    jar.toKey should be("com.typesafe.akka-akka-stream_2.12-_________2_________4________14")
     jar.ivyJarPath should be("com.typesafe.akka/akka-stream_2.12/jars/akka-stream_2.12-2.4.14.jar")
     jar.ivySrcPath should be("com.typesafe.akka/akka-stream_2.12/jars/akka-stream_2.12-2.4.14-sources.jar")
     jar.ivyDocPath should be("com.typesafe.akka/akka-stream_2.12/jars/akka-stream_2.12-2.4.14-javadoc.jar")
@@ -21,6 +22,12 @@ class ModelTest extends FunSuite {
     val data = JarData(jar, 2, Set(jar))
 
     data.merge(data) should be(data)
+  }
+
+  test("Test sortable version") {
+    val jar = JarRequest("com.typesafe.akka", "akka-stream_2.12", "2.4.14")
+
+    jar.sortableVersion should be("_________2_________4________14")
   }
 
 }

@@ -7,6 +7,7 @@ import scala.concurrent.duration._
 
 import akka.actor.{ Actor, ActorRef, Props }
 import akka.actor.ReceiveTimeout
+import scala.collection.mutable.TreeSet
 
 case class IvyFetch(jar: JarRequest)
 case class FetchCompleted(jar: JarRequest, dependencies: Int)
@@ -40,11 +41,11 @@ class FileSizeLookup extends Actor {
       val ivyCacheBase = new File(home, ".ivy2/cache/")
       val file = new File(ivyCacheBase, jar.ivyJarPath)
       val bundleFile = new File(ivyCacheBase, jar.ivyBundlePath)
-      println(s"Looking up ${file.getCanonicalPath}")
+      //      println(s"Looking up ${file.getCanonicalPath}")
       val size = file.exists() match {
         case true => file.length
         case false =>
-          println(s"Looking up ${bundleFile.getCanonicalPath}")
+          //          println(s"Looking up ${bundleFile.getCanonicalPath}")
           bundleFile.exists match {
             case true  => bundleFile.length
             case false => 0
@@ -64,7 +65,12 @@ object FileSizeLookup {
 class JarTraversalActor(resolvers: List[Resolver], topJar: JarRequest) extends Actor {
 
   // data 
-  val cache = mutable.HashMap.empty[JarRequest, JarData]
+  val myOrdering = Ordering.fromLessThan[JarData] {
+    case (f, s) =>
+      f.jar.toKey > s.jar.toKey
+  }
+
+  val cache = mutable.HashMap.empty[String, mutable.HashMap[String, JarData]]
   val messages = mutable.ListBuffer.empty[String]
   var children = Set.empty[ActorRef]
 
@@ -75,31 +81,30 @@ class JarTraversalActor(resolvers: List[Resolver], topJar: JarRequest) extends A
   //
   // Helpers
   // ///////////////////////////////
-  def updateCache(data: JarData): Boolean = {
-    val result: Boolean = cache.get(data.jar) match {
-      case Some(jData) =>
-        cache += (data.jar -> data.merge(jData))
-        false
-      case None => {
-        val versions = cache.keySet.filter(_.groupArtifact == data.jar.groupArtifact)
-        val newerVersions = versions.filter(_.version > data.jar.version)
-        newerVersions.size match {
-          case 0 =>
-            cache += (data.jar -> data) // this is the only version
-            true
-          case _ => { // remove older versions, add ourselves if no newer versions
-            val removeVersions = (versions -- newerVersions)
-            cache --= removeVersions
-            if (newerVersions.size == 0) {
-              cache += (data.jar -> data)
-              true
-            } else false
-          }
+  def updateCache(data: JarData): Unit = {
+    cache.get(data.jar.groupArtifact) match {
+      case Some(jDataSet) =>
+        //        println(s"Found jar group - ${jDataSet}")
+        jDataSet.contains(data.jar.sortableVersion) match {
+          case true =>
+            //            println(s"Found version - ${data.jar.sortableVersion}")
+            jDataSet += (data.jar.sortableVersion -> jDataSet(data.jar.sortableVersion).merge(data))
+          case false =>
+            //            println(s"Not found - ${data.jar.sortableVersion}")
+            jDataSet += (data.jar.sortableVersion -> data)
         }
+      case None => {
+        //        println(s"Adding new jar group - ${data.jar.groupArtifact}")
+        val inner = mutable.HashMap.empty[String, JarData] += (data.jar.sortableVersion -> data)
+        cache += (data.jar.groupArtifact -> inner)
       }
     }
-    //    println(s"Cache --- size = ${cache.size} - ${cache.mkString("\n    ", "\n    ", "\n    ")}")
-    result
+    //    dumpCache
+  }
+
+  def dumpCache: Unit = {
+    val sortedCache = cache.toSeq.sortBy(_._1)
+    println(s"Cache --- size = ${sortedCache.size} - ${sortedCache.mkString("\n    ", "\n    ", "\n    ")}")
   }
 
   def doIvyFetch(jar: JarRequest) = {
@@ -118,25 +123,24 @@ class JarTraversalActor(resolvers: List[Resolver], topJar: JarRequest) extends A
   def receive = {
 
     case IvyFetch(jar) =>
-      println(s"IvyFetch - ${jar}")
-      cache.contains(jar) match {
+      //      println(s"IvyFetch - ${jar}")
+      cache.contains(jar.groupArtifact) match {
         case true  => // ignore, already processed 
         case false => doIvyFetch(jar)
       }
 
     case FetchCompleted(jar, depCount) =>
-      println(s"Fetched ${depCount} dependencies for jar ${jar.toIdString}")
+      //      println(s"Fetched ${depCount} dependencies for jar ${jar.toIdString}")
       children -= sender
 
     case jar: JarRequest =>
-      println(s"JarRequest - ${jar}")
-      cache.contains(jar) match {
+      //      println(s"JarRequest - ${jar}")
+      cache.contains(jar.groupArtifact) match {
         case true => // ignore, already processed 
         case false =>
-          if (updateCache(JarData(jar, 0, Set()))) {
-            if (jar != topJar) doIvyFetch(jar)
-            doFileSizeLookup(jar)
-          }
+          updateCache(JarData(jar, 0, Set()))
+          if (jar != topJar) doIvyFetch(jar)
+          doFileSizeLookup(jar)
       }
 
     case printer: CollectionPrinter => {
@@ -145,11 +149,15 @@ class JarTraversalActor(resolvers: List[Resolver], topJar: JarRequest) extends A
     }
 
     case data: JarData =>
-      println(s"JarData - ${data}")
+      //      println(s"JarData - ${data}")
       updateCache(data)
       children -= sender
 
-    case CacheRequest => sender ! DependencyList(topJar, cache.values.toList.toSeq)
+    case CacheRequest => {
+      val deps: Seq[JarData] = cache.values.map(_.values).map(_.toSeq.sortBy(_.jar.sortableVersion).reverseIterator.toSeq.head).toSeq
+      sender ! DependencyList(topJar, deps)
+      context.stop(self)
+    }
 
     case rt: ReceiveTimeout =>
       println(s"ReceiveTimout - ${rt}")

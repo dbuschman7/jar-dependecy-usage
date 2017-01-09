@@ -93,12 +93,12 @@ case class IvyThing(resolvers: () => List[Resolver], printer: Printer, verboseOu
 
     val unresolved = report.getUnresolvedDependencies.toSeq.map { un: IvyNode =>
       val id = un.getResolvedId()
-      JarRequest(id.getOrganisation, id.getName, id.getRevision)
+      JarRequest(id.getOrganisation, id.getName, id.getRevision, jar.scope)
     }
 
     val resolved = report.getAllArtifactsReports.toSeq.map { un =>
       val id = un.getArtifact.getModuleRevisionId()
-      JarRequest(id.getOrganisation, id.getName, id.getRevision)
+      JarRequest(id.getOrganisation, id.getName, id.getRevision, un.getType)
     }
 
     resolved ++ unresolved

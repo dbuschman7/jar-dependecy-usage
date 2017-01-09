@@ -23,7 +23,7 @@ class ForestTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
     do { // wait for completion
       Thread.sleep(200)
       val children = actor.children.map(_.path.name).mkString(",")
-      println(s"Child thread count - ${actor.children.size} - ${children}")
+      //      println(s"Child thread count - ${actor.children.size} - ${children}")
     } while (actor.children.size > 0)
 
     forest ! CacheRequest
@@ -34,12 +34,22 @@ class ForestTest extends TestKit(ActorSystem("MySpec")) with ImplicitSender
   test("Lookup Jar") {
 
     val akkaStream = JarRequest("com.typesafe.akka", "akka-stream_2.12", "2.4.14")
-    val play25 = JarRequest("com.typesafe.play", "play_2.11", "2.5.10")
-    val jackson = JarRequest("com.fasterxml.jackson.datatype", "jackson-datatype-jdk8", "2.7.8")
-    val scalaz = JarRequest("org.scalaz", "scalaz-core_2.12", "7.2.8")
-    val cats = JarRequest("org.typelevel", "cats_2.12", "0.8.1")
+    val play25 = JarRequest("com.typesafe.play", "play_2.12", "2.5.10" )
+    val jackson = JarRequest("com.fasterxml.jackson.datatype", "jackson-datatype-jdk8", "2.7.8" )
+    val scalaz = JarRequest("org.scalaz", "scalaz-core_2.12", "7.2.8" )
+    val cats = JarRequest("org.typelevel", "cats_2.12", "0.8.1" )
 
-    Seq(akkaStream, play25, jackson, scalaz, cats)
+    val playJson = JarRequest("com.typesafe.play", "play-json_2.11", "2.5.10" )
+    val sprayJson = JarRequest("io.spray", "spray-json_2.12", "1.3.2" )
+    val akkaHttpSprayJson = JarRequest("com.typesafe.akka", "akka-http-spray-json_2.12", "10.0.1" )
+
+    //    Seq(akkaStream, play25, jackson, scalaz, playJson, sprayJson, akkaHttpSprayJson)
+    //      .map { jar =>
+    //        val deps = computeDependencyList(jar)
+    //        println(deps.dumpFormatted().mkString("\n", "\n", "\n"))
+    //      }
+
+    Seq(cats)
       .map { jar =>
         val deps = computeDependencyList(jar)
         println(deps.dumpFormatted().mkString("\n", "\n", "\n"))
