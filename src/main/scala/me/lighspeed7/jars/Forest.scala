@@ -107,10 +107,13 @@ class JarTraversalActor(resolvers: List[Resolver], topJar: JarRequest) extends A
     println(s"Cache --- size = ${sortedCache.size} - ${sortedCache.mkString("\n    ", "\n    ", "\n    ")}")
   }
 
-  def doIvyFetch(jar: JarRequest) = {
-    val child = context.actorOf(FetchIvyDepsActor.props(resolvers), name = s"fetch-${jar.toIdString}")
-    children += child
-    child ! IvyFetch(jar)
+  def doIvyFetch(jar: JarRequest) = cache.get(jar.groupArtifact) match {
+    case Some(jar) => // ignore
+    case None => {
+      val child = context.actorOf(FetchIvyDepsActor.props(resolvers), name = s"fetch-${jar.toIdString}")
+      children += child
+      child ! IvyFetch(jar)
+    }
   }
 
   def doFileSizeLookup(jar: JarRequest) = {

@@ -15,6 +15,8 @@ lazy val jodaTime    = "joda-time" % "joda-time" % "2.9.6"
 
 lazy val scalaXml    = "org.scala-lang.modules" %% "scala-xml" % "1.0.6"
 lazy val scalaTest   = "org.scalatest" %% "scalatest" % "3.0.1" 
+lazy val jsoniter    = "com.jsoniter" % "jsoniter" % "0.9.4"
 
-libraryDependencies ++= Seq(akkaStreams, akkaTestKit % "test", apacheIvy, jodaTime, scalaTest % "test", scalaXml)
+
+libraryDependencies ++= Seq(akkaStreams, akkaTestKit % "test", apacheIvy, jodaTime, jsoniter, scalaTest % "test", scalaXml)
 
